@@ -14,7 +14,7 @@ impl Model {
         let mut x = input.clone();
         for layer in &self.layers[0..self.layers.len() - 1] {
             x = layer.forward(&x)?;
-            x.relu();
+            x = x.relu()?;
         }
         x = self.layers[self.layers.len() - 1].forward(&x)?;
         return Ok(x);
@@ -50,6 +50,7 @@ impl NnetEval {
             model
                 .layers
                 .push(Linear::new(weight.clone(), Some(bias.clone())));
+            println!("adding layer {} with shape {:?}", key, weight.shape());
         }
 
         return Ok(NnetEval { model: model });
@@ -93,7 +94,7 @@ impl NnetEval {
             }
         }
 
-        return Tensor::new(input, &Device::Cpu);
+        return Tensor::new(input, &Device::Cpu)?.reshape((1, 774));
     }
 }
 

@@ -2,6 +2,7 @@ use chess::Board;
 
 mod nneteval;
 mod simpleeval;
+pub use nneteval::NnetEval;
 pub use simpleeval::SimpleEval;
 
 pub trait Evaluator {

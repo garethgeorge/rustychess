@@ -63,15 +63,17 @@ class EvaluationDataset(IterableDataset):
 dataset = EvaluationDataset(db)
 
 class EvaluationModel(pl.LightningModule):
-  def __init__(self,learning_rate=1e-3,batch_size=1024,hidden_layer_count=2):
+  def __init__(self,learning_rate=1e-3,batch_size=1024,layer_shapes=[lib.game.tensor_len, lib.game.tensor_len, lib.game.tensor_len, lib.game.tensor_len]):
     super().__init__()
     self.batch_size = batch_size
     self.learning_rate = learning_rate
     layers = []
-    for i in range(hidden_layer_count):
-      layers.append((f"linear-{i}", nn.Linear(lib.game.tensor_len, lib.game.tensor_len)))
+    prev_shape = lib.game.tensor_len
+    for i in range(len(layer_shapes)):
+      layers.append((f"linear-{i}", nn.Linear(prev_shape, layer_shapes[i])))
       layers.append((f"relu-{i}", nn.ReLU()))
-    layers.append((f"linear-{hidden_layer_count}", nn.Linear(lib.game.tensor_len, 1)))
+      prev_shape = layer_shapes[i]
+    layers.append((f"linear-{len(layer_shapes)}", nn.Linear(prev_shape, 1)))
     self.seq = nn.Sequential(OrderedDict(layers))
     print(self.seq)
 
@@ -94,11 +96,11 @@ class EvaluationModel(pl.LightningModule):
 print(f"TENSOR LENGTH: {lib.game.tensor_len}")
 
 batch_size = 4096 * 2
-hidden_layer_count = 6
-version_name = f'{time.time()}-batch_size-{batch_size}-layer_count-{hidden_layer_count}'
+layer_shapes = [lib.game.tensor_len // 1, lib.game.tensor_len // 1, lib.game.tensor_len // 1]
+version_name = f'{time.time()}-batch_size-{batch_size}-layer_count-{len(layer_shapes)}'
 logger = pl.loggers.TensorBoardLogger("logs", name="rustychess", version=version_name)
 trainer = pl.Trainer(devices=1, accelerator="gpu", precision=16, max_epochs=args.epochs, logger=logger)
-model = EvaluationModel(hidden_layer_count=hidden_layer_count, batch_size=1024, learning_rate=1e-3)
+model = EvaluationModel(layer_shapes=layer_shapes, batch_size=1024, learning_rate=1e-3)
 trainer.fit(model)
 
 # save the version as a .safetensors model
