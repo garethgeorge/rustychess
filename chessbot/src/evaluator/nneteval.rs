@@ -107,7 +107,11 @@ impl Evaluator for NnetEval {
             .forward(&tensor)
             .context("failed to evaluate model for board")?;
         let scalar_score: f32 = output.sum_all()?.to_scalar()?;
-        return Ok(scalar_score as f32);
+
+        match board.side_to_move() {
+            chess::Color::White => return Ok(scalar_score),
+            chess::Color::Black => return Ok(-scalar_score),
+        };
     }
 }
 

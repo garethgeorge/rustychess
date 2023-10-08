@@ -11,3 +11,4 @@ candle-core = { git = "https://github.com/huggingface/candle.git", version = "0.
 candle-nn = { git = "https://github.com/huggingface/candle.git", version = "0.3.0" }
 chess = "3.2.0"
 colored = "2.0.4"
+rayon = "1.8.0"
