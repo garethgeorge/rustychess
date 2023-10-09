@@ -1,9 +1,9 @@
 use chess::Board;
 
 mod nneteval;
-mod simpleeval;
+mod pointseval;
 pub use nneteval::NnetEval;
-pub use simpleeval::SimpleEval;
+pub use pointseval::PointsEval;
 
 pub trait Evaluator {
     // Evaluate returns a score for the board where positive is good for white and negative is good for black.

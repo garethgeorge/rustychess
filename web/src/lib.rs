@@ -1,6 +1,10 @@
 use std::str::FromStr;
 
-use chessbot::evaluator::{self, Evaluator};
+use chessbot::{
+    evaluator::{self, Evaluator},
+    search::simpleminmax::SimpleMinMax,
+    search::MoveSearch,
+};
 use wasm_bindgen::prelude::*;
 use web_sys::console;
 
@@ -23,7 +27,7 @@ pub fn main_js() -> Result<(), JsValue> {
 
 #[wasm_bindgen]
 pub struct ChessEngine {
-    evaluator: Box<dyn Evaluator>,
+    searcher: Box<dyn MoveSearch>,
 }
 
 #[wasm_bindgen]
@@ -31,10 +35,9 @@ impl ChessEngine {
     pub fn new() -> Self {
         let model = include_bytes!("../model.safetensors");
         let evaluator = evaluator::NnetEval::new(model, "seq.linear-").unwrap();
+        let searcher = Box::new(SimpleMinMax::new(2, 1, Box::new(evaluator)));
 
-        return ChessEngine {
-            evaluator: Box::new(evaluator),
-        };
+        return ChessEngine { searcher };
     }
 
     pub fn select_move(&self, fen: &str) -> Result<String, JsError> {
@@ -47,7 +50,7 @@ impl ChessEngine {
                 )))
             }
         };
-        match chessbot::search::move_search(&board, 2, self.evaluator.as_ref()) {
+        match self.searcher.search(&board) {
             Ok(Some(chessmove)) => {
                 println!(
                     "generated move with score {} move {}",
