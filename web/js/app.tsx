@@ -58,11 +58,16 @@ export default function BoardUI({ engine }: { engine: ChessEngine }) {
   }
 
   function onDrop(sourceSquare: Square, targetSquare: Square) {
-    const move = makeAMove({
-      from: sourceSquare,
-      to: targetSquare,
-      promotion: "q",
-    });
+    try {
+      const move = makeAMove({
+        from: sourceSquare,
+        to: targetSquare,
+        promotion: "q",
+      });
+    } catch (e: any) {
+      alert("invalid move: " + e.toString());
+      return false;
+    }
 
     return true;
   }

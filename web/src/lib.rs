@@ -3,7 +3,7 @@ use std::str::FromStr;
 use chessbot::{
     evaluator::{self, Evaluator},
     search::simpleminmax::SimpleMinMax,
-    search::MoveSearch,
+    search::{alphabeta::AlphaBeta, MoveSearch},
 };
 use wasm_bindgen::prelude::*;
 use web_sys::console;
@@ -35,7 +35,7 @@ impl ChessEngine {
     pub fn new() -> Self {
         let model = include_bytes!("../model.safetensors");
         let evaluator = evaluator::NnetEval::new(model, "seq.linear-").unwrap();
-        let searcher = Box::new(SimpleMinMax::new(2, 1, Box::new(evaluator)));
+        let searcher = Box::new(AlphaBeta::new(2, 5, Box::new(evaluator)));
 
         return ChessEngine { searcher };
     }

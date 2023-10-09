@@ -37,13 +37,14 @@ impl SimpleMinMax {
     }
 
     fn search(&self, board: &chess::Board, depth: i32) -> anyhow::Result<Option<ScoredMove>> {
-        let movegen = MoveGen::new_legal(board);
-        let mut moveiter: Box<dyn Iterator<Item = ChessMove>> = Box::new(movegen);
-
         if depth <= -self.max_capture_depth {
             // we've exceeded the maximum depth.
             return Ok(None);
-        } else if depth <= 0 {
+        }
+
+        let movegen = MoveGen::new_legal(board);
+        let mut moveiter: Box<dyn Iterator<Item = ChessMove>> = Box::new(movegen);
+        if depth <= 0 {
             // examine captures only.
             moveiter =
                 Box::new(moveiter.filter(|chessmove: &ChessMove| {

@@ -1,5 +1,6 @@
 use chess::{Board, ChessMove, Color, MoveGen};
 
+pub mod alphabeta;
 pub mod simpleminmax;
 
 pub struct ScoredMove {
