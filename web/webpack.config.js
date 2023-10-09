@@ -7,7 +7,7 @@ const dist = path.resolve(__dirname, "dist");
 module.exports = {
   mode: "production",
   entry: {
-    index: "./js/index.js",
+    index: "./js/index.tsx",
   },
   output: {
     path: dist,
@@ -49,5 +49,9 @@ module.exports = {
     hints: false,
     maxEntrypointSize: 10 * 1024 * 1024,
     maxAssetSize: 10 * 1024 * 1024,
+  },
+
+  resolve: {
+    extensions: [".js", ".jsx", ".ts", ".tsx"],
   },
 };

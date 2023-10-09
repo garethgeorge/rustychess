@@ -10,8 +10,6 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 #[wasm_bindgen(start)]
 pub fn main_js() -> Result<(), JsValue> {
-    // This provides better error messages in debug mode.
-    // It's disabled in release mode so it doesn't bloat up the file size.
     #[cfg(debug_assertions)]
     console_error_panic_hook::set_once();
 
@@ -42,9 +40,14 @@ impl ChessEngine {
     pub fn select_move(&self, fen: &str) -> Result<String, JsError> {
         let board = match chess::Board::from_str(fen) {
             Ok(board) => board,
-            Err(err) => return Err(JsError::new(&format!("failed to load board {}", err))),
+            Err(err) => {
+                return Err(JsError::new(&format!(
+                    "failed to load board (fen probably corrupt): {}",
+                    err
+                )))
+            }
         };
-        match chessbot::search::move_search(&board, 1, self.evaluator.as_ref()) {
+        match chessbot::search::move_search(&board, 2, self.evaluator.as_ref()) {
             Ok(Some(chessmove)) => {
                 println!(
                     "generated move with score {} move {}",
@@ -54,7 +57,7 @@ impl ChessEngine {
                 return Ok(chessmove.chessmove.to_string());
             }
             Ok(None) => return Err(JsError::new("No move found")),
-            Err(err) => return Err(JsError::new(&format!("failed to generate move {}", err))),
+            Err(err) => return Err(JsError::new(&format!("failed to generate move: {}", err))),
         };
     }
 }
