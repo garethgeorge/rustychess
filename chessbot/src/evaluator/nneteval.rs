@@ -78,7 +78,7 @@ impl NnetEval {
                     continue;
                 };
                 let color = board.color_on(sq).unwrap();
-                let color_offset = match color {
+                let color_offset: usize = match color {
                     chess::Color::White => 6,
                     chess::Color::Black => 0,
                 };

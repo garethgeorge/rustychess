@@ -1,28 +1,26 @@
 use std::str::FromStr;
 
-use chess::{ChessMove, MoveGen};
-
-use crate::evaluator::Evaluator;
-
-mod evaluator;
-mod search;
-mod ui;
-
-extern crate wasm_bindgen;
-
+use chessbot::evaluator::{self, Evaluator};
 use wasm_bindgen::prelude::*;
+use web_sys::console;
 
-fn main() {
-    let mut board = chess::Board::default();
-    let model = include_bytes!("../model.safetensors");
-    let evaluator = evaluator::NnetEval::new(model, "seq.linear-").unwrap();
+#[cfg(feature = "wee_alloc")]
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-    for _ in 0..100 {
-        let chessmove = search::move_search(&board, 1, &evaluator).unwrap().unwrap();
-        board = board.make_move_new(chessmove.chessmove);
-        println!("score: {}", chessmove.score);
-        println!("{}\n", ui::display_board(&board, false));
-    }
+#[wasm_bindgen(start)]
+pub fn main_js() -> Result<(), JsValue> {
+    // This provides better error messages in debug mode.
+    // It's disabled in release mode so it doesn't bloat up the file size.
+    #[cfg(debug_assertions)]
+    console_error_panic_hook::set_once();
+
+    // Your code goes here!
+    console::log_1(&JsValue::from_str(
+        "Hello world from WASM!! Loaded the chess engine.",
+    ));
+
+    Ok(())
 }
 
 #[wasm_bindgen]
@@ -30,6 +28,7 @@ pub struct ChessEngine {
     evaluator: Box<dyn Evaluator>,
 }
 
+#[wasm_bindgen]
 impl ChessEngine {
     pub fn new() -> Self {
         let model = include_bytes!("../model.safetensors");
@@ -45,7 +44,7 @@ impl ChessEngine {
             Ok(board) => board,
             Err(err) => return Err(JsError::new(&format!("failed to load board {}", err))),
         };
-        match search::move_search(&board, 1, self.evaluator.as_ref()) {
+        match chessbot::search::move_search(&board, 1, self.evaluator.as_ref()) {
             Ok(Some(chessmove)) => {
                 println!(
                     "generated move with score {} move {}",

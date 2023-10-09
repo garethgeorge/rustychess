@@ -14,7 +14,7 @@ import torch
 import torch.nn.functional as F
 import lmdb
 import struct
-import tensorboard
+import math
 
 parser = argparse.ArgumentParser(description='Training script for the model')
 parser.add_argument('--lmdb_path', type=str, default="./dataset.lmdb", help='Path to the lmdb store that hosts the dataset.')
@@ -52,9 +52,7 @@ class EvaluationDataset(IterableDataset):
     assert(len(bitvec) == lib.game.tensor_packed_len)
     bin = np.frombuffer(bitvec, dtype=np.uint8)
     bin = np.unpackbits(bin, axis=0).astype(np.single)[0:lib.game.tensor_len]
-    score = score / 100.0
-    score = max(score, -15)
-    score = min(score, 15)
+    score =  math.copysign(math.log2(abs(score / 10.0) + 1), score) # the more extreme the win the less we weight it, we just want to bias towards winning.
     return {
       'binary': bin,
       'eval': np.array([score]).astype(np.single) 
@@ -91,16 +89,16 @@ class EvaluationModel(pl.LightningModule):
     return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
   def train_dataloader(self):
-    return DataLoader(dataset, batch_size=self.batch_size, num_workers=12, pin_memory=True)
+    return DataLoader(dataset, batch_size=self.batch_size, num_workers=24, pin_memory=True)
 
 print(f"TENSOR LENGTH: {lib.game.tensor_len}")
 
 batch_size = 4096 * 2
-layer_shapes = [lib.game.tensor_len // 1, lib.game.tensor_len // 1, lib.game.tensor_len // 1]
+layer_shapes = [lib.game.tensor_len // 1, 32, 32]
 version_name = f'{time.time()}-batch_size-{batch_size}-layer_count-{len(layer_shapes)}'
 logger = pl.loggers.TensorBoardLogger("logs", name="rustychess", version=version_name)
-trainer = pl.Trainer(devices=1, accelerator="gpu", precision=16, max_epochs=args.epochs, logger=logger)
-model = EvaluationModel(layer_shapes=layer_shapes, batch_size=1024, learning_rate=1e-3)
+trainer = pl.Trainer(devices=1, accelerator="gpu", precision='bf16-mixed', max_epochs=args.epochs, logger=logger)
+model = EvaluationModel(layer_shapes=layer_shapes, batch_size=4096, learning_rate=1e-3)
 trainer.fit(model)
 
 # save the version as a .safetensors model

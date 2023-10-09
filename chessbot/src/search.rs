@@ -18,7 +18,7 @@ pub fn move_search(
     let movegen = MoveGen::new_legal(board);
     for maybe_move in movegen {
         let b = board.make_move_new(maybe_move);
-        let score = -scorer(&b, depth - 1 as i32, eval)?;
+        let score = -eval.evaluate(&b)?;
 
         if score > best_score {
             best = Some(maybe_move);
@@ -41,12 +41,13 @@ fn scorer(board: &Board, depth: i32, eval: &dyn Evaluator) -> anyhow::Result<f32
     let movegen = MoveGen::new_legal(board);
     let mut moveiter: Box<dyn Iterator<Item = ChessMove>> = Box::new(movegen);
 
-    if depth < -2 {
+    if depth < -4 {
         return Ok(eval.evaluate(board)?);
     } else if depth <= 0 {
         // examine captures only.
-        moveiter =
-            Box::new(moveiter.filter(|chessmove| board.piece_on(chessmove.get_dest()).is_some()));
+        moveiter = Box::new(
+            moveiter.filter(|chessmove: &ChessMove| board.piece_on(chessmove.get_dest()).is_some()),
+        );
     }
 
     let scores = moveiter

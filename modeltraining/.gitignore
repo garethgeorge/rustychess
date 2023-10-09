@@ -1,4 +1,6 @@
 venv/
 *.lmdb
 *.pgn.zst
-**/__pycache/*
+__pycache__/
+logs/
+archive-datasets/
