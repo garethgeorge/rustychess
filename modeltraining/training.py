@@ -1,20 +1,11 @@
-from collections import OrderedDict
 from random import randrange
-from safetensors.torch import save_model, save_file
-from torch import nn
-from torch.utils.data import Dataset, DataLoader, IterableDataset, random_split
+from torch import optim, nn
+from torch.nn import functional as F
 import argparse 
-import base64
 import lib.game
 import numpy as np
-import os
-import pytorch_lightning as pl
-import time
-import torch
-import torch.nn.functional as F
 import lmdb
 import struct
-import math
 
 parser = argparse.ArgumentParser(description='Training script for the model')
 parser.add_argument('--lmdb_path', type=str, default="./dataset.lmdb", help='Path to the lmdb store that hosts the dataset.')
@@ -29,11 +20,14 @@ db = lmdb.open(args.lmdb_path,
       lock=False,
       map_async=True,)
 
-class EvaluationDataset(IterableDataset):
+class EvaluationDataset:
   def __init__(self, db):
     self.db = db
     with db.begin() as txn:
       self.count = struct.unpack('i', txn.get('count'.encode('ascii')))[0]
+
+    self.scaler = 1
+    self.scaler = max(abs(self[idx]['target'][0]) for idx in range(0, self.count))
 
   def __iter__(self):
     return self
@@ -50,77 +44,125 @@ class EvaluationDataset(IterableDataset):
       bin = txn.get(str(idx).encode('ascii'))
       (_, score, bitvec) = struct.unpack(f"ii{lib.game.tensor_packed_len}s", bin)
     assert(len(bitvec) == lib.game.tensor_packed_len)
-    bin = np.frombuffer(bitvec, dtype=np.uint8)
-    bin = np.unpackbits(bin, axis=0).astype(np.single)[0:lib.game.tensor_len]
-    score = score / 100.0
-    # score =  math.copysign(math.log2(abs(score / 10.0) + 1), score) # the more extreme the win the less we weight it, we just want to bias towards winning.
+    tensor = lib.game.binary_to_board_tensor(bitvec)
+    score = score / 100
     return {
-      'binary': bin,
-      'eval': np.array([score]).astype(np.single) 
+      'input': tensor,
+      'target': np.array([score], dtype=np.float32),
     }
   
-dataset = EvaluationDataset(db)
+  dataset = EvaluationDataset(db)
 
-class EvaluationModel(pl.LightningModule):
-  def __init__(self,learning_rate=1e-3,batch_size=1024,layer_shapes=[lib.game.tensor_len, lib.game.tensor_len, lib.game.tensor_len, lib.game.tensor_len]):
-    super().__init__()
-    self.batch_size = batch_size
-    self.learning_rate = learning_rate
-    layers = []
-    prev_shape = lib.game.tensor_len
-    for i in range(len(layer_shapes)):
-      layers.append((f"linear-{i}", nn.Linear(prev_shape, layer_shapes[i])))
-      layers.append((f"relu-{i}", nn.ReLU()))
-      prev_shape = layer_shapes[i]
-    layers.append((f"linear-{len(layer_shapes)}", nn.Linear(prev_shape, 1)))
-    self.seq = nn.Sequential(OrderedDict(layers))
-    print(self.seq)
 
-  def forward(self, x):
-    return self.seq(x)
+class LunaNN(nn.Module):
+    """Reinforcement Learning Neural Network"""
 
-  def training_step(self, batch, batch_idx):
-    x, y = batch['binary'], batch['eval']
-    y_hat = self(x)
-    loss = F.l1_loss(y_hat, y)
-    self.log("train_loss", loss)
-    return loss
+    # Optimizer
+    optimizer: optim.Optimizer
 
-  def configure_optimizers(self):
-    return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+    # Learning Rate
+    learning_rate: float
 
-  def train_dataloader(self):
-    return DataLoader(dataset, batch_size=self.batch_size, num_workers=24, pin_memory=True)
+    # Number of channels
+    num_channels: int
 
-print(f"TENSOR LENGTH: {lib.game.tensor_len}")
+    def __init__(self, num_channels: int) -> None:
+        super(LunaNN, self).__init__()
 
-batch_size = 4096 * 2
-layer_shapes = [lib.game.tensor_len // 1, 32, 32]
-version_name = f'{time.time()}-batch_size-{batch_size}-layer_count-{len(layer_shapes)}'
-logger = pl.loggers.TensorBoardLogger("logs", name="rustychess", version=version_name)
-trainer = pl.Trainer(devices=1, accelerator="gpu", precision='bf16-mixed', max_epochs=args.epochs, logger=logger)
-model = EvaluationModel(layer_shapes=layer_shapes, batch_size=4096, learning_rate=1e-3)
-trainer.fit(model)
+        self.board_x, self.board_y, self.board_z = (15, 8, 8)
+        self.action_size = game.getActionSize()
+        self.game = game
+        self.num_channels = 
 
-# save the version as a .safetensors model
-save_model(model, f"{version_name}.safetensors")
+        # Define neural net
+        self.define_architecture()
+        self.learning_rate = 1e-3
+        self.optimizer = pytorch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
-# validation data
-print(f"Zero-vector output for validation: {model.forward(torch.zeros(1,lib.game.tensor_len))}")
-print(f"Ones-vector output for validation: {model.forward(torch.ones(1,lib.game.tensor_len))}")
+    def define_architecture(self) -> None:
+        """Define Net
+            - Input: serialized chess.Board
+            - Output:
+                - predicted board value (tanh)
+                - policy distribution over possible moves (softmax)
+        """
+        # Args shortcut
+        args = self.args
 
-# check the model against known samples
-for i in range(0, 10):
-  idx = randrange(0, len(dataset))
-  input_tensor = torch.from_numpy(dataset[idx]['binary'])
-  print(f"Actual output: {model.forward(input_tensor)}")
-  print(f"Expected output: {dataset[idx]['eval']}")
+        # Input
+        self.conv1 = nn.Conv3d(1, args.num_channels, 3, stride=1, padding=1)
+        
+        ## Hidden
+        self.conv2 = nn.Conv3d(args.num_channels, args.num_channels * 2, 3, stride=1, padding=1)
+        self.conv3 = nn.Conv3d(args.num_channels * 2, args.num_channels * 2, 3, stride=1)
+        self.conv4 = nn.Conv3d(args.num_channels * 2, args.num_channels * 2, 3, stride=1)
+        self.conv5 = nn.Conv3d(args.num_channels * 2, args.num_channels, 1, stride=1)
 
-# create validation data, this enables us to validate that we load the model 
-# correctly from rust.
-validation_data = {}
-for i in range(0, 10):
-  input_tensor = torch.rand(1,lib.game.tensor_len)
-  validation_data[f"input-{i}"] = input_tensor
-  validation_data[f"output-{i}"] = model.forward(input_tensor).sum()
-save_file(validation_data, f"{version_name}.validation.safetensors")
+        self.bn1 = nn.BatchNorm3d(args.num_channels)
+        self.bn2 = nn.BatchNorm3d(args.num_channels * 2)
+        self.bn3 = nn.BatchNorm3d(args.num_channels * 2)
+        self.bn4 = nn.BatchNorm3d(args.num_channels * 2)
+        self.bn5 = nn.BatchNorm3d(args.num_channels)
+
+        self.fc1 = nn.Linear(args.num_channels*(self.board_x-4)*(self.board_y-4)*(self.board_z-4), 1024) #4096 -> 1024
+        self.fc_bn1 = nn.BatchNorm1d(1024)
+
+        self.fc2 = nn.Linear(1024, 512)
+        self.fc_bn2 = nn.BatchNorm1d(512)
+
+        self.fc3 = nn.Linear(512, 512)
+        self.fc_bn3 = nn.BatchNorm1d(512)
+
+        # output p dist        
+        self.fc4 = nn.Linear(512, self.action_size)
+
+        # output scalar
+        self.fc5 = nn.Linear(512, 1)
+
+    def forward(self, boardsAndValids):
+        """Forward prop"""
+        x, valids = boardsAndValids
+
+        x = x.view(-1, 1, self.board_x, self.board_y, self.board_z)
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = F.relu(self.bn3(self.conv3(x)))
+        x = F.relu(self.bn4(self.conv4(x)))
+        x = F.relu(self.bn5(self.conv5(x)))
+        x = x.view(-1, self.args.num_channels*(self.board_x-4)*(self.board_y-4)*(self.board_z-4))
+        x = F.dropout(F.relu(self.fc_bn1(self.fc1(x))), p=self.args.dropout, training=self.training)
+        x = F.dropout(F.relu(self.fc_bn2(self.fc2(x))), p=self.args.dropout, training=self.training)
+        x = F.dropout(F.relu(self.fc_bn3(self.fc3(x))), p=self.args.dropout, training=self.training)
+
+        pi = self.fc4(x)
+        v = self.fc5(x)
+
+        pi -= (1 - valids) * 1000
+        return F.log_softmax(pi, dim=1), torch.tanh(v)
+
+checkpoint_filepath = './checkpoints'
+model_checkpointing_callback = ModelCheckpoint(
+    filepath = checkpoint_filepath,
+    save_best_only= True,
+)
+
+print("INPUT: ", dataset[123]['input'])
+print("TARGET: ", dataset[123]['target'])
+
+train_tfds = tf.data.Dataset.from_tensor_slices(([dataset[i]['input'] for i in range(0, len(dataset) * 9 // 10)], [dataset[i]['target'] for i in range(0, len(dataset) * 9 // 10)]))
+val_tfds = tf.data.Dataset.from_tensor_slices(([dataset[i]['input'] for i in range(len(dataset) * 9 // 10, len(dataset))], [dataset[i]['target'] for i in range(len(dataset) * 9 // 10, len(dataset))]))
+
+print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+
+model.fit(train_tfds,
+          batch_size=4096,
+          epochs=2,
+          verbose=1,
+          validation_data=val_tfds,
+          callbacks=[callbacks.ReduceLROnPlateau(monitor='loss', patience=10),
+                     callbacks.EarlyStopping(monitor='loss', patience=15, min_delta=1e-4),model_checkpointing_callback])
+
+model.save('model.keras')
+
+print("expected: " + str(dataset[123]['target']))
+print(model.call(tf.constant(dataset[123]['input'].transpose())))

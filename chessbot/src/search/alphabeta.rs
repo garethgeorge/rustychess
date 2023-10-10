@@ -148,22 +148,22 @@ impl AlphaBeta {
             }
         }
 
-        if let Some(score) = &best_move {
-            self.cache.add(
-                board.get_hash(),
-                TransTableEntry {
-                    depth,
-                    score: score.score,
-                    flag: if score.score <= alpha_orig {
-                        TransTableEntryFlag::UPPERBOUND
-                    } else if score.score >= beta {
-                        TransTableEntryFlag::LOWERBOUND
-                    } else {
-                        TransTableEntryFlag::EXACT
-                    },
-                },
-            );
-        }
+        // if let Some(score) = &best_move {
+        //     self.cache.add(
+        //         board.get_hash(),
+        //         TransTableEntry {
+        //             depth,
+        //             score: score.score,
+        //             flag: if score.score <= alpha_orig {
+        //                 TransTableEntryFlag::UPPERBOUND
+        //             } else if score.score >= beta {
+        //                 TransTableEntryFlag::LOWERBOUND
+        //             } else {
+        //                 TransTableEntryFlag::EXACT
+        //             },
+        //         },
+        //     );
+        // }
 
         return Ok(best_move);
     }

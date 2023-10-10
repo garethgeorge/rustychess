@@ -15,8 +15,16 @@ db = lmdb.open(args.lmdb_path,
       metasync=False,
       sync=False,
       map_async=True,)
-for idx, (score, board) in tqdm(enumerate(lib.game.get_scored_boards(lib.game.read_games(args.gamedata_path)))):
-  with db.begin(write=True) as txn:
-    txn.put(str(idx).encode('ascii'), struct.pack(f"ii{lib.game.tensor_packed_len}s", idx, score.white().score(), lib.game.to_tensor_array(board).tobytes()))
-    txn.put('count'.encode('ascii'), struct.pack("i", idx+1))
-db.close()
+try:
+  for idx, (score, board) in tqdm(enumerate(lib.game.get_scored_boards(lib.game.read_games(args.gamedata_path)))):
+    with db.begin(write=True) as txn:
+      txn.put(
+        str(idx).encode('ascii'), 
+        struct.pack(
+          f"ii{lib.game.tensor_packed_len}s", 
+          idx, 
+          score.white().score(), 
+          lib.game.board_tensor_to_binary(lib.game.board_to_tensor(board)).tobytes()))
+      txn.put('count'.encode('ascii'), struct.pack("i", idx+1))
+finally:
+  db.close()

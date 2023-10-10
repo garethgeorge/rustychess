@@ -8,6 +8,7 @@ Training implementation is based on the following articles:
 
  * https://towardsdatascience.com/train-your-own-chess-ai-66b9ca8d71e4
  * https://colab.research.google.com/drive/1smI2B7kiwzkr43TqnCYOpxocZlI0kPUh?usp=sharing#scrollTo=ytOPoXcbDbMM
+ * https://github.com/lipeeeee/luna-chess
 
 ## Dependencies
  
@@ -17,6 +18,7 @@ Training implementation is based on the following articles:
 ## Dev Setup
 
 ```
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 python3 -m venv venv
 source env/bin/activate # only use this on subsequent invocations
 ```

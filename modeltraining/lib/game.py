@@ -2,7 +2,8 @@ import chess.pgn
 import io
 from pyzstd import ZstdFile
 import numpy as np
-import struct
+import pickle
+import math
 
 def read_games(path):
   with open(path, 'rb') as file, ZstdFile(file, 'rb') as zstd_file:
@@ -34,33 +35,71 @@ def get_scored_boards(games):
 piece_types = [chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN, chess.KING]
 piece_type_and_color = [(piece_type, color) for color in [chess.WHITE, chess.BLACK] for piece_type in piece_types]
 
-tensor_len = 64 * 6 * 2 + 6
-tensor_packed_len = 97
+squares_index = {
+  'a': 0,
+  'b': 1,
+  'c': 2,
+  'd': 3,
+  'e': 4,
+  'f': 5,
+  'g': 6,
+  'h': 7
+}
 
-def to_tensor(board):
-  flags = np.array([
-    1 if board.turn else 0,
-    1 if not board.turn else 0,
-    1 if board.has_kingside_castling_rights(chess.WHITE) else 0,
-    1 if board.has_queenside_castling_rights(chess.WHITE) else 0,
-    1 if board.has_kingside_castling_rights(chess.BLACK) else 0,
-    1 if board.has_queenside_castling_rights(chess.BLACK) else 0,
-  ], dtype=np.uint8)
 
-  # 64 squares, 6 piece types, 2 colors
-  positions = np.zeros(64 * 6 * 2, dtype=np.uint8)
-  for sq in range(0, 64):
-    piece = board.piece_at(sq)
-    if piece is not None:
-      piece_type = piece.piece_type
-      color = 1 if piece.color else 0
-      positions[sq * 6 * 2 + color * 6 + (piece_type - 1)] = 1
+# example: h3 -> 17
+def square_to_index(square):
+  letter = chess.square_name(square)
+  return 8 - int(letter[1]), squares_index[letter[0]]
 
-  arr = np.concatenate([flags, positions])
-  assert(len(arr) == tensor_len)
+def board_to_tensor(board):
+  # this is the 3d matrix (piece type, rank, file) 
+  board3d = np.zeros((15, 8, 8), dtype=np.int8)
 
-def to_tensor_array(board):
-  arr = to_tensor(board)
-  arr = np.packbits(arr, axis=0)
-  assert(len(arr) == tensor_packed_len)
-  return arr
+  # here we add the pieces's view on the matrix
+  for piece in chess.PIECE_TYPES:
+    for square in board.pieces(piece, chess.WHITE):
+      idx = np.unravel_index(square, (8, 8))
+      board3d[piece - 1][7 - idx[0]][idx[1]] = 1
+    for square in board.pieces(piece, chess.BLACK):
+      idx = np.unravel_index(square, (8, 8))
+      board3d[piece + 5][7 - idx[0]][idx[1]] = 1
+
+  # add attacks and valid moves too
+  # so the network knows what is being attacked
+  aux = board.turn
+  board.turn = chess.WHITE
+  for move in board.legal_moves:
+      i, j = square_to_index(move.to_square)
+      board3d[12][i][j] = 1
+  board.turn = chess.BLACK
+  for move in board.legal_moves:
+      i, j = square_to_index(move.to_square)
+      board3d[13][i][j] = 1
+  board.turn = aux
+
+  # add the current player's turn
+  board3d[14] = np.full((8, 8), 1 if board.turn == chess.WHITE else 0, dtype=np.int8)
+
+  return board3d
+
+def encode_tensor(tensor):
+  shape = tensor.shape # the shape of the tensor
+  tensor = tensor.flatten()
+  arr = np.packbits(tensor, axis=0)
+  return pickle.dumps((shape, arr))
+
+def decode_tensor(binary):
+  shape, arr = pickle.loads(binary)
+  expbits = np.prod(shape)
+  arr = np.unpackbits(arr, axis=0).astype(np.single)[0:expbits]
+  return arr.reshape(shape)
+
+def board_tensor_to_binary(tensor):
+  return encode_tensor(tensor)
+
+def binary_to_board_tensor(binary):
+  return decode_tensor(binary)
+
+base_board_tensor = board_to_tensor(chess.Board())
+assert(np.array_equal(binary_to_board_tensor(board_tensor_to_binary(base_board_tensor)), base_board_tensor))
