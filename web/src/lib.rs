@@ -35,12 +35,13 @@ impl ChessEngine {
     pub fn new() -> Self {
         let model = include_bytes!("../model.safetensors");
         let evaluator = evaluator::NnetEval::new(model, "seq.linear-").unwrap();
-        let searcher = Box::new(AlphaBeta::new(2, 5, Box::new(evaluator)));
+        // let evaluator = evaluator::PointsEval::new();
+        let searcher = Box::new(AlphaBeta::new(2, 7, Box::new(evaluator)));
 
         return ChessEngine { searcher };
     }
 
-    pub fn select_move(&self, fen: &str) -> Result<String, JsError> {
+    pub fn select_move(&mut self, fen: &str) -> Result<String, JsError> {
         let board = match chess::Board::from_str(fen) {
             Ok(board) => board,
             Err(err) => {

@@ -21,6 +21,7 @@ colored = "2.0.4"
 rayon = "1.8.0"
 wasm-bindgen = "0.2.87"
 getrandom = { version = "0.2", features = ["js"] }
+radsort = "0.1.0"
 
 [profile.release]
 opt-level = "s"

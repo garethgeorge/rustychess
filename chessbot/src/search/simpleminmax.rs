@@ -24,7 +24,7 @@ impl SimpleMinMax {
         }
     }
 
-    fn score(&self, board: &chess::Board, depth: i32) -> anyhow::Result<f32> {
+    fn score(&mut self, board: &chess::Board, depth: i32) -> anyhow::Result<f32> {
         let scored_move = self.search(board, depth)?;
         return match scored_move {
             Some(scored_move) => Ok(scored_move.score),
@@ -36,7 +36,7 @@ impl SimpleMinMax {
         };
     }
 
-    fn search(&self, board: &chess::Board, depth: i32) -> anyhow::Result<Option<ScoredMove>> {
+    fn search(&mut self, board: &chess::Board, depth: i32) -> anyhow::Result<Option<ScoredMove>> {
         if depth <= -self.max_capture_depth {
             // we've exceeded the maximum depth.
             return Ok(None);
@@ -81,7 +81,7 @@ impl SimpleMinMax {
 }
 
 impl MoveSearch for SimpleMinMax {
-    fn search(&self, board: &chess::Board) -> anyhow::Result<Option<ScoredMove>> {
+    fn search(&mut self, board: &chess::Board) -> anyhow::Result<Option<ScoredMove>> {
         return self.search(board, self.max_depth);
     }
 }

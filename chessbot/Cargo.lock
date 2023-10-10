@@ -279,6 +279,7 @@ dependencies = [
  "chess",
  "colored",
  "getrandom",
+ "radsort",
  "rayon",
  "wasm-bindgen",
 ]
@@ -608,6 +609,12 @@ checksum = "5267fca4496028628a95160fc423a33e8b2e6af8a5302579e322e4b520293cae"
 dependencies = [
  "proc-macro2",
 ]
+
+[[package]]
+name = "radsort"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17fd96390ed3feda12e1dfe2645ed587e0bea749e319333f104a33ff62f77a0b"
 
 [[package]]
 name = "rand"

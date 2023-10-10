@@ -9,5 +9,5 @@ pub struct ScoredMove {
 }
 
 pub trait MoveSearch {
-    fn search(&self, board: &Board) -> anyhow::Result<Option<ScoredMove>>;
+    fn search(&mut self, board: &Board) -> anyhow::Result<Option<ScoredMove>>;
 }
