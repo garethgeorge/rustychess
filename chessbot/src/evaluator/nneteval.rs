@@ -37,6 +37,7 @@ impl NnetEval {
         let mut model = Model { layers: Vec::new() };
 
         for key in keys {
+            println!("Loading model, examining tensor key: {}", key);
             if !key.starts_with(prefix) || !key.ends_with(".weight") {
                 continue;
             }

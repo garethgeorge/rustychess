@@ -36,7 +36,7 @@ impl ChessEngine {
         let model = include_bytes!("../model.safetensors");
         let evaluator = evaluator::NnetEval::new(model, "seq.linear-").unwrap();
         // let evaluator = evaluator::PointsEval::new();
-        let searcher = Box::new(AlphaBeta::new(2, 7, Box::new(evaluator)));
+        let searcher = Box::new(AlphaBeta::new(3, 0, Box::new(evaluator)));
 
         return ChessEngine { searcher };
     }
