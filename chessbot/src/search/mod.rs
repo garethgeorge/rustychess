@@ -1,4 +1,4 @@
-use chess::{Board, ChessMove, Color, MoveGen};
+use chess::{Board};
 
 pub mod alphabeta;
 pub mod simpleminmax;

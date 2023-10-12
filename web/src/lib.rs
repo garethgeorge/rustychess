@@ -1,8 +1,7 @@
 use std::str::FromStr;
 
 use chessbot::{
-    evaluator::{self, Evaluator},
-    search::simpleminmax::SimpleMinMax,
+    evaluator::{self},
     search::{alphabeta::AlphaBeta, MoveSearch},
 };
 use wasm_bindgen::prelude::*;

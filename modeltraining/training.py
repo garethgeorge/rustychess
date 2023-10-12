@@ -52,7 +52,8 @@ class EvaluationDataset(IterableDataset):
     assert(len(bitvec) == lib.game.tensor_packed_len)
     bin = np.frombuffer(bitvec, dtype=np.uint8)
     bin = np.unpackbits(bin, axis=0).astype(np.single)[0:lib.game.tensor_len]
-    score =  math.copysign(math.log2(abs(score / 10.0) + 1), score) # the more extreme the win the less we weight it, we just want to bias towards winning.
+    score = score / 100.0
+    # score =  math.copysign(math.log2(abs(score / 10.0) + 1), score) # the more extreme the win the less we weight it, we just want to bias towards winning.
     return {
       'binary': bin,
       'eval': np.array([score]).astype(np.single) 

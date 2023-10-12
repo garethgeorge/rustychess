@@ -101,6 +101,12 @@ impl NnetEval {
 
 impl Evaluator for NnetEval {
     fn evaluate(&self, board: &chess::Board) -> anyhow::Result<f32> {
+        match board.status() {
+            chess::BoardStatus::Ongoing => {}
+            chess::BoardStatus::Checkmate => return Ok(-10000.0),
+            chess::BoardStatus::Stalemate => return Ok(-9000.0),
+        }
+
         let tensor =
             NnetEval::board_to_input(board).context("failed to create tensor for board")?;
         let output = self

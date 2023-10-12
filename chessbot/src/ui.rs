@@ -1,4 +1,4 @@
-use chess::{Board, ChessMove, Color, File, Game, MoveGen, Rank, Square};
+use chess::{Board, Color, File, Rank, Square};
 use colored::Colorize;
 
 pub fn display_board(board: &Board, ascii: bool) -> String {
