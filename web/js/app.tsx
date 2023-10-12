@@ -54,6 +54,7 @@ const RustyBoard = () => {
 export default function BoardUI({ engine }: { engine: ChessEngine }) {
   const [game, setGame] = useState(new Chess());
   const [history, setHistory] = useState<string[]>([]);
+  const [status, setStatus] = useState<string>("");
 
   function makeAMove(
     move: { from: Square; to: Square; promotion: string } | string
@@ -61,8 +62,24 @@ export default function BoardUI({ engine }: { engine: ChessEngine }) {
     let copy = new Chess(game.fen());
     copy.move(move);
 
+    if (copy.isGameOver()) {
+      setStatus("You win!");
+      setGame(copy);
+      return;
+    }
+
     let opponent_move = engine.select_move(copy.fen());
     copy.move(opponent_move);
+
+    if (copy.isCheckmate()) {
+      setStatus("You are in checkmate! Sorry :(");
+    } else if (copy.isCheck()) {
+      setStatus("You are in check!");
+    } else if (copy.isDraw()) {
+      setStatus("This is a draw.");
+    } else if (copy.isStalemate()) {
+      setStatus("This is a stalemate.");
+    }
 
     setGame(copy);
     setHistory([
@@ -102,12 +119,15 @@ export default function BoardUI({ engine }: { engine: ChessEngine }) {
       <div>
         <div
           style={{
-            height: "60vh",
-            width: "60vh",
+            height: "70vmin",
+            width: "70vmin",
           }}
         >
           <Chessboard position={game.fen()} onPieceDrop={onDrop} />
         </div>
+        <p>
+          <strong>{status}</strong>
+        </p>
         <pre
           style={{
             height: "10em",
