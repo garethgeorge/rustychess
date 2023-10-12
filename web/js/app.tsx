@@ -7,10 +7,22 @@ import { ChessEngine } from "../pkg/index";
 export const App = () => {
   return (
     <>
-      <p>
-        A chess AI, written by a rusty chess player in the most appropriate of
-        languages: rust.
-      </p>
+      <center>
+        <h1>RustyChess</h1>
+
+        <p style={{ width: "50%" }}>
+          RustyChess is a local-only Chess Engine written in Rust and compiled
+          to WASM to run directly in your browser. This means immediate move
+          generation with no backend API calls. The AI gets its intelligence
+          from a neural network scoring function trained on a dataset of games
+          from
+          <a href="https://database.lichess.org/">lichess.org</a>. For more info
+          see the github{" "}
+          <a href="https://github.com/garethgeorge/rustychess">
+            github.com/garethgeorge/rustychess
+          </a>
+        </p>
+      </center>
       <RustyBoard />
     </>
   );
@@ -29,32 +41,38 @@ const RustyBoard = () => {
   }, []);
 
   if (engine === null) {
-    return <p>Loading...</p>;
+    return <p>Loading Chess AI...</p>;
   }
 
   return (
     <>
-      <p>Loaded.</p>
-      <div id="board-container" style={{ width: "50vh", height: "50vh" }}>
-        <BoardUI engine={engine} />
-      </div>
+      <BoardUI engine={engine} />
     </>
   );
 };
 
 export default function BoardUI({ engine }: { engine: ChessEngine }) {
   const [game, setGame] = useState(new Chess());
+  const [history, setHistory] = useState<string[]>([]);
 
   function makeAMove(
     move: { from: Square; to: Square; promotion: string } | string
   ) {
-    const copy = new Chess(game.fen());
+    let copy = new Chess(game.fen());
     copy.move(move);
 
     let opponent_move = engine.select_move(copy.fen());
     copy.move(opponent_move);
 
     setGame(copy);
+    setHistory([
+      ...history,
+      ...copy.history({ verbose: true }).map((move) => {
+        return `${move.after}, ${
+          move.color === "w" ? "white" : "black"
+        } moved ${move.piece} from ${move.from} to ${move.to}`;
+      }),
+    ]);
   }
 
   function onDrop(sourceSquare: Square, targetSquare: Square) {
@@ -72,5 +90,34 @@ export default function BoardUI({ engine }: { engine: ChessEngine }) {
     return true;
   }
 
-  return <Chessboard position={game.fen()} onPieceDrop={onDrop} />;
+  return (
+    <div
+      style={{
+        width: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <div>
+        <div
+          style={{
+            height: "60vh",
+            width: "60vh",
+          }}
+        >
+          <Chessboard position={game.fen()} onPieceDrop={onDrop} />
+        </div>
+        <pre
+          style={{
+            height: "10em",
+            width: "100%",
+            overflow: "scroll",
+          }}
+        >
+          {history.join("\n")}
+        </pre>
+      </div>
+    </div>
+  );
 }
