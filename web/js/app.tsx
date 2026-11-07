@@ -5,7 +5,6 @@ import {
   CustomSquareStyles,
   Square,
 } from "react-chessboard/dist/chessboard/types";
-import { ChessEngine } from "../pkg/index";
 
 export const App = () => {
   return (
@@ -28,14 +27,12 @@ export const App = () => {
 };
 
 const RustyBoard = () => {
-  const [engine, setEngine] = useState<ChessEngine | null>(null);
+  const [engine, setEngine] = useState<Worker | null>(null);
 
   useEffect(() => {
-    (async () => {
-      const { ChessEngine } = await import("../pkg/index");
-      let engine = ChessEngine.new();
-      setEngine(engine);
-    })();
+    const worker = new Worker(new URL("./engine.worker.ts", import.meta.url));
+    worker.onmessage = () => setEngine(worker);
+    return () => worker.terminate();
   }, []);
 
   if (engine === null) {
@@ -56,6 +53,14 @@ function copyGame(game: Chess) {
   const copy = new Chess();
   copy.loadPgn(game.pgn());
   return copy;
+}
+
+function selectMove(engine: Worker, fen: string) {
+  return new Promise<string>((resolve, reject) => {
+    engine.onmessage = (e) =>
+      e.data.error ? reject(e.data.error) : resolve(e.data.move);
+    engine.postMessage(fen);
+  });
 }
 
 function describe(game: Chess, thinking: boolean) {
@@ -93,7 +98,7 @@ function squareStyles(game: Chess) {
   return styles;
 }
 
-export default function BoardUI({ engine }: { engine: ChessEngine }) {
+export default function BoardUI({ engine }: { engine: Worker }) {
   const [game, setGame] = useState(new Chess());
   const [thinking, setThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -117,19 +122,15 @@ export default function BoardUI({ engine }: { engine: ChessEngine }) {
       return;
     }
 
-    // The engine runs synchronously on the main thread, so give the browser a
-    // moment to animate the player's move and show the thinking state first.
     setThinking(true);
-    setTimeout(() => {
-      try {
+    selectMove(engine, copy.fen())
+      .then((move) => {
         let reply = copyGame(copy);
-        reply.move(engine.select_move(reply.fen()));
+        reply.move(move);
         setGame(reply);
-      } catch (e: any) {
-        setError("The engine failed to move: " + e.toString());
-      }
-      setThinking(false);
-    }, 350);
+      })
+      .catch((e) => setError("The engine failed to move: " + e.toString()))
+      .finally(() => setThinking(false));
   }
 
   function onDrop(sourceSquare: Square, targetSquare: Square, piece: string) {
@@ -174,6 +175,7 @@ export default function BoardUI({ engine }: { engine: ChessEngine }) {
           position={game.fen()}
           onPieceDrop={onDrop}
           arePiecesDraggable={!thinking && !gameOver}
+          promotionDialogVariant="modal"
           customSquareStyles={squareStyles(game)}
           customDarkSquareStyle={{ backgroundColor: "#7b8aa8" }}
           customLightSquareStyle={{ backgroundColor: "#e3e8f2" }}
